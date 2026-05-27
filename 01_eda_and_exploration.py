@@ -2,6 +2,7 @@
 import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
+from sklearn.preprocessing import LabelEncoder, StandardScaler
 
 # %% dataframe erstellen
 df_eda = pd.read_csv("data/raw/smart-manufacturing-iot-cloud-monitoring-dataset.csv")
@@ -304,8 +305,6 @@ fig.tight_layout()
 plt.show()
 
 # %% anomaly_flag & downtime_risk (Donuts mit Center-Text & Tabellen)
-import matplotlib.pyplot as plt
-
 # 1. Absolute Häufigkeiten berechnen und sortieren
 counts_anomaly = df_eda["anomaly_flag"].value_counts().sort_index()
 counts_risk = df_eda["downtime_risk"].value_counts().sort_index()
@@ -512,8 +511,6 @@ for col in columns_to_check:
 
 print("\n-> Ausreißer wurden erfolgreich auf die 3-Sigma-Grenzen gekappt (Clipping).")
 # %%
-from sklearn.preprocessing import StandardScaler
-
 # 1. Liste aller 5 Sensor-Features definieren
 sensor_features = [
     "energy_consumption",
@@ -532,8 +529,6 @@ df_prep[sensor_features] = scaler.fit_transform(df_prep[sensor_features])
 # 4. Zur Überprüfung die neuen Min/Max-Werte anzeigen lassen
 print(df_prep[sensor_features].describe().loc[["mean", "std", "min", "max"]])
 # %%
-import matplotlib.pyplot as plt
-
 # 1. Erstelle ein 2x3 Grid für die 5 Sensor-Spalten
 fig, axes = plt.subplots(nrows=2, ncols=3, figsize=(15, 8))
 
@@ -599,8 +594,6 @@ for row in axes:
 fig.tight_layout()
 plt.show()
 # %%
-from sklearn.preprocessing import LabelEncoder
-
 # --- 1. Variante A: Label Encoding für failure_type (Perfekt, falls es das Target wird) ---
 le = LabelEncoder()
 df_prep["failure_type_encoded"] = le.fit_transform(df_prep["failure_type"])
