@@ -1,5 +1,6 @@
 # %% impots
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 import seaborn as sns
 from sklearn.preprocessing import LabelEncoder, StandardScaler
@@ -108,7 +109,8 @@ fig, ax = plt.subplots(figsize=(8, 4))
 
 # 2. Histogramm auf Achse zeichnen
 sns.histplot(
-    df_eda.loc[:, "temperature"],
+    data=df_eda,
+    x="temperature",
     kde=True,
     color="crimson",
     edgecolor="black",
@@ -132,7 +134,8 @@ fig, ax = plt.subplots(figsize=(8, 4))
 
 # 2. Histogramm zeichnen
 sns.histplot(
-    df_eda.loc[:, "vibration"],
+    data=df_eda,
+    x="vibration",
     kde=True,
     color="darkorange",
     edgecolor="black",
@@ -596,10 +599,15 @@ plt.show()
 # %%
 # --- 1. Variante A: Label Encoding für failure_type (Perfekt, falls es das Target wird) ---
 le = LabelEncoder()
-df_prep["failure_type_encoded"] = le.fit_transform(df_prep["failure_type"])
+df_prep["failure_type_encoded"] = pd.Series(le.fit_transform(df_prep["failure_type"]))
 
 # Zeigt dir das Mapping an (z.B. Normal -> 2, Overheating -> 3, etc.)
-mapping = dict(zip(le.classes_, le.transform(le.classes_)))
+# mapping = dict(zip(le.classes_, le.transform(le.classes_)))
+mapping = {
+    str(k): int(v)
+    for k, v in zip(np.asarray(le.classes_), np.asarray(le.transform(le.classes_)))
+}
+
 print("--- Label Encoding Mapping für 'failure_type' ---")
 for key, val in mapping.items():
     print(f"  {key} -> {val}")
@@ -680,7 +688,7 @@ failures_only = df_eda.query("failure_type != 'Normal'")["failure_type"].value_c
 fig, ax = plt.subplots(figsize=(10, 4))
 
 # 3. Create a horizontal bar chart for the failures
-ax.barh(failures_only.index, failures_only.values, edgecolor="black")
+ax.barh(failures_only.index, np.asarray(failures_only.values), edgecolor="black")
 
 # 4. Clean up the labels using Object-Oriented style
 ax.set_title(
