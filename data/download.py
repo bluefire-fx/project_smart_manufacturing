@@ -64,17 +64,25 @@ def extract_smart_manufacturing_data(
     path: Path, consume: bool = False
 ) -> Result[str, str]:
 
-    if path.with_suffix(".csv").exists:
+    csv_path = path.with_suffix(".csv")
+    file_in_zip = "smart_manufacturing_data.csv"
+
+    if csv_path.exists():
         return Ok("CSV ist bereits extrahiert")
 
     # Entpacken mit Fehlerbehandlung
     try:
         # ZIP-Datei öffnen
         with ZipFile(path, "r") as z:
-            z.getinfo("smart_manufacturing_data.csv").filename = str(
-                path.with_suffix(".csv")
-            )
-            z.extract("smart_manufacturing_data.csv")
+            # Prüfen, ob die Datei im ZIP existiert
+            if file_in_zip not in z.namelist():
+                return Err(
+                    "Datei 'smart_manufacturing_data.csv' nicht im ZIP gefunden."
+                )
+
+            # Inhalt lesen und direkt als gewünschte CSV schreiben
+            data = z.read("smart_manufacturing_data.csv")
+            csv_path.write_bytes(data)
 
             if consume:
                 path.unlink()
