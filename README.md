@@ -49,9 +49,9 @@ Im git repo werden keine ipynb dateien verwaltet. Als alternative dienen Noteboo
 
 Helium => Jupyter Notebook
 ```bash
-uv run ipynb-py-convert 00_converter_example.py ipynb-py-convert 00_converter_example.ipynb
+uv run ipynb-py-convert 00_converter_example.py 00_converter_example.ipynb
 ```
 Jupyter Notebook => Helium
 ```bash
-uv run ipynb-py-convert 00_converter_example.ipynb ipynb-py-convert 00_converter_example.py
+uv run ipynb-py-convert 00_converter_example.ipynb 00_converter_example.py
 ```
