@@ -12,6 +12,7 @@ data/raw/
 data/processed/
 models/*.pkl
 models/*.h5
+models/*.joblib
 
 # Bilder
 images/
