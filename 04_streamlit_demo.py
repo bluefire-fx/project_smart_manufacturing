@@ -24,12 +24,6 @@ with col_logo:
     # Zeigt das Logo skaliert an
     st.image(logo_url, width="stretch")
 
-st.markdown("""
-Dieses Dashboard demonstriert ein optimiertes **Support Vector Machine (SVM) Modell ($C=100$)**
-zur Echtzeit-Überwachung von Produktionsmaschinen.
-Ändern Sie die Sensorwerte in der Seitenleiste, um den Zustand der Maschine zu simulieren.
-""")
-
 
 # 3. Modell und Scaler sicher laden
 @st.cache_resource  # Verhindert, dass das Modell bei jedem Klick neu geladen wird
@@ -51,6 +45,13 @@ if artifacts:
     scaler = artifacts["scaler"]
     model = artifacts["model"]
     features = artifacts["features"]
+    parameter_c = artifacts["parameter_c"]
+
+    st.markdown(f"""
+        Dieses Dashboard demonstriert ein optimiertes **Support Vector Machine (SVM) Modell ($C={parameter_c}$)**
+    zur Echtzeit-Überwachung von Produktionsmaschinen.
+    Ändern Sie die Sensorwerte in der Seitenleiste, um den Zustand der Maschine zu simulieren.
+    """)
 
     # 4. Seitenleiste für die Live-Eingabe (Simulation der IoT-Sensoren)
     st.sidebar.header("📊 Sensor-Live-Daten (Simulation)")
