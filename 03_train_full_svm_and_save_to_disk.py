@@ -81,6 +81,6 @@ production_artifacts = {
 }
 
 # 9. Auf die Festplatte schreiben
-output_path = f"models/svm_anomaly_detector_c{PARAMETER_C}.joblib"
+output_path = "models/svm_anomaly_detector.joblib"
 joblib.dump(production_artifacts, output_path)
 print(f"✓ Artefakte erfolgreich in '{output_path}' gespeichert!")

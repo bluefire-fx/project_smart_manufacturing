@@ -35,7 +35,7 @@ zur Echtzeit-Überwachung von Produktionsmaschinen.
 @st.cache_resource  # Verhindert, dass das Modell bei jedem Klick neu geladen wird
 def load_model_artifacts():
     try:
-        artifacts = joblib.load("models/svm_anomaly_detector_c1000.joblib")
+        artifacts = joblib.load("models/svm_anomaly_detector.joblib")
         return artifacts
     except FileNotFoundError:
         st.error(
