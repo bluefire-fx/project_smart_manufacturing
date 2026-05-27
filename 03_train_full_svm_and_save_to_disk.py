@@ -78,6 +78,8 @@ production_artifacts = {
     "scaler": scaler,
     "model": final_model,
     "features": x_feature_sensors,
+    "parameter_c": PARAMETER_C,
+    "parameter_gamma": PARAMETER_GAMMA,
 }
 
 # 9. Auf die Festplatte schreiben
