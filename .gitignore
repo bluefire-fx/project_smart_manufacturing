@@ -1,0 +1,20 @@
+# uv
+.uv/
+
+# Python virtuelle Umgebungen
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# Große ML-Daten und Modelle ausschließen
+data/raw/
+data/processed/
+models/*.pkl
+models/*.h5
+
+# Bilder
+images/
+
+# Jupyter Notebook Checkpoints
+.ipynb_checkpoints/

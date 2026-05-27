@@ -1,0 +1,21 @@
+[server]
+address = "::1"
+port = 8501
+
+[client]
+toolbarMode = "viewer"
+
+# [theme]
+# # Das neue, markante Beeren-Pink des Markenrelaunchs
+# primaryColor = "#E3007B"
+
+# # Hintergrund der Hauptseite (sauberes Weiß für den Kontrast)
+# backgroundColor = "#FFFFFF"
+
+# # Hintergrund für die Sidebar (dezentes, professionelles Dunkelblau/Anthrazit)
+# secondaryBackgroundColor = "#1A2238"
+
+# # Textfarbe (Dunkelgrau für optimale Lesbarkeit)
+# textColor = "#111111"
+
+# font = "sans serif"

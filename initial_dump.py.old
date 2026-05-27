@@ -1,0 +1,1315 @@
+# %% imports
+import matplotlib.pyplot as plt
+import pandas as pd
+import seaborn as sns
+from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.model_selection import train_test_split
+from sklearn.svm import SVC
+
+# %% dataframe erstellen
+df = pd.read_csv("data/raw/smart_manufacturing_data.csv")
+df.head()
+
+# %% spaltennamen des dataframes
+df.columns.astype(str).to_list()
+# %% Diskreptanz Statistik
+df.describe()
+
+# %% Gibt es irgendwelche fehlende Werte?
+if df.isna().values.any():
+    print("Ja")
+else:
+    print("Nein => Wir werden später welche fälschen müssen")
+
+
+# %% maintenance_required
+# 1. Get the frequency counts
+counts = df["maintenance_required"].value_counts()
+print(counts)
+
+# 2. Create the figure and axis objects
+fig, ax = plt.subplots(figsize=(6, 6))
+
+# 3. Plot the pie chart on the 'ax' object
+ax.pie(
+    counts,
+    labels=["0 (Mehrheit)", "1 (Minderheit)"],
+    autopct="%1.1f%%",  # Shows the percentage (e.g., 80.0%)
+    startangle=90,  # Rotates the chart for a cleaner look
+    colors=["#ff9999", "#66b3ff"],  # Distinct colors
+    wedgeprops={"edgecolor": "black"},  # Adds a clean border
+)
+
+# 4. Set titles and layout using the object-oriented style
+ax.set_title(
+    "Ungleiche Klassenverteilung!\n\n => Problem für das zukünftige SVM Modell\n => Stichproben als Lösungsansatz?",
+    fontsize=14,
+    pad=20,
+)
+fig.tight_layout()
+
+# 5. Display the plot
+plt.show()
+# %% downtime_risk
+# 1. Setup the figure and axis
+fig, ax = plt.subplots(figsize=(10, 5))
+
+# 2. Define custom bins to separate 0, the middle values, and 1
+# This creates bins: [0.0 to 0.05), [0.05 to 0.95), [0.95 to 1.05]
+custom_bins = [0.0, 0.05, 0.95, 1.05]
+
+# 3. Plot the histogram
+counts, bins, patches = ax.hist(
+    df["downtime_risk"],
+    bins=custom_bins,
+    color="royalblue",
+    edgecolor="black",
+    rwidth=0.8,  # Adds a slight gap between bars for readability
+)
+
+# 4. Customize axes and labels
+ax.set_title("Ausfallrisikoverteilung Histogramm", fontsize=14, pad=15)
+ax.set_xlabel("Risikograd")
+ax.set_ylabel("Anzahl der Zeilen (Logarithmisch)")
+
+# CRUCIAL: Use a logarithmic scale because 90k vs 3 rows is impossible to see otherwise
+ax.set_yscale("log")
+
+# Set explicit X-ticks to match your data logic
+ax.set_xticks([0.0, 0.5, 1.0])
+
+# 5. Add text annotations above the bars to show the exact counts
+for count, bin_edge in zip(counts, bins):
+    if count > 0:
+        # Place text slightly above the top of each bar
+        ax.text(
+            bin_edge + 0.02, count * 1.2, f"{int(count):,}", fontsize=10, weight="bold"
+        )
+
+fig.tight_layout()
+plt.show()
+
+
+# %% downtime_risk_binary
+# 1. Bin the data: 1 if risk is >= 0.50, otherwise 0
+binned_counts = ((df["downtime_risk"] >= 0.50).astype(int)).value_counts()
+
+# 2. Setup the plot
+fig, ax = plt.subplots(figsize=(6, 6))
+
+# 3. Create the pie chart
+ax.pie(
+    binned_counts,
+    labels=["Niedriges Risiko (<50%)", "Hohes Risiko (>=50%)"],
+    autopct="%1.1f%%",
+    startangle=90,
+    colors=["#2ca02c", "#d62728"],  # Green for safe, Red for risk
+    wedgeprops={"edgecolor": "black"},
+)
+
+# 4. Customize with OO syntax
+ax.set_title("Ausfallrisikoverteilung (50% Binned)", fontsize=12, pad=20)
+fig.tight_layout()
+
+# 5. Show it
+plt.show()
+# %%
+df["failure_type"].value_counts()
+# %%
+# 1. Filter out 'Normal' to see only actual failures
+failures_only = df.query("failure_type != 'Normal'")["failure_type"].value_counts()
+
+# 2. Setup the plot objects
+fig, ax = plt.subplots(figsize=(10, 4))
+
+# 3. Create a horizontal bar chart for the failures
+ax.barh(failures_only.index, failures_only.values, color="crimson", edgecolor="black")
+
+# 4. Clean up the labels using Object-Oriented style
+ax.set_title(
+    'Distribution of Machine Failures (Excluding "Normal" Status)', fontsize=14, pad=15
+)
+ax.set_xlabel("Number of Incidents")
+ax.invert_yaxis()  # Puts the highest count (Vibration) at the top
+
+# 5. Add exact count text next to each bar
+for index, value in enumerate(failures_only.values):
+    ax.text(value + 20, index, f"{value:,}", va="center", weight="bold")
+
+fig.tight_layout()
+plt.show()
+# %%
+df["predicted_remaining_life"].describe()
+# %%
+# 1. Setup the figure and axis
+fig, ax = plt.subplots(figsize=(6, 4))
+
+# 2. Create a horizontal boxplot
+ax.boxplot(
+    df["predicted_remaining_life"],
+    vert=False,
+    patch_artist=True,
+    boxprops=dict(facecolor="lightblue", color="blue"),
+    medianprops=dict(color="red", linewidth=2),
+)
+
+# 3. Customize using OO syntax
+ax.set_title(
+    "Distribution of Predicted Remaining Life (NEEDEs Scaling/normalization!)",
+    fontsize=14,
+    pad=15,
+)
+ax.set_xlabel("Remaining Life (Cycles/Days)")
+ax.set_yticklabels([])  # Hides the default numeric Y-axis label
+
+fig.tight_layout()
+plt.show()
+# %%
+df["anomaly_flag"].value_counts()
+# %%
+# 1. Generate the cross-tab data
+comparison = pd.crosstab(df["anomaly_flag"], df["downtime_risk"] > 0)
+
+# 2. Setup the plot
+fig, ax = plt.subplots(figsize=(6, 5))
+
+# 3. Plot a heatmap of the overlap
+sns.heatmap(
+    comparison,
+    annot=True,  # Put the exact numbers inside the boxes
+    fmt="d",  # Format numbers as integers (no scientific notation)
+    cmap="Blues",  # Color scheme
+    cbar=False,  # Hide the color bar side-legend for a cleaner look
+    linewidths=2,
+    linecolor="black",
+    ax=ax,
+)
+
+# 4. Labeling via Object-Oriented syntax
+ax.set_title("Feature Redundancy Verification", fontsize=14, pad=15)
+ax.set_xlabel("Downtime Risk > 0 (True/False)", fontsize=11)
+ax.set_ylabel("Anomaly Flag (0/1)", fontsize=11)
+
+fig.tight_layout()
+plt.show()
+
+# %%
+print(df["machine_status"].value_counts(dropna=False))
+# %%
+# See exactly which failure types happen under which machine status
+status_breakdown = pd.crosstab(df["machine_status"], df["failure_type"])
+print(status_breakdown)
+# %%
+
+# 1. Calculate percentages for each status row
+# (divides each cell by the total sum of that row)
+status_percentages = (
+    pd.crosstab(df["machine_status"], df["failure_type"], normalize="index") * 100
+)
+
+# 2. Setup the plot
+fig, ax = plt.subplots(figsize=(10, 6))
+
+# 3. Plot as a stacked horizontal bar chart
+status_percentages.plot(
+    kind="barh",
+    stacked=True,
+    ax=ax,
+    edgecolor="black",
+    color=["#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#1f77b4"],
+)
+
+# 4. Object-Oriented Styling
+ax.set_title(
+    "Operational Logic: Failure Types by Machine Status (%)", fontsize=14, pad=15
+)
+ax.set_xlabel("Percentage of Rows within Status (%)")
+ax.set_ylabel("Machine Status Code")
+ax.set_yticklabels(["Status 0 (Idle)", "Status 1 (Healthy)", "Status 2 (Alert)"])
+
+# Place legend cleanly outside
+ax.legend(title="Failure Type", bbox_to_anchor=(1.02, 1), loc="upper left")
+
+fig.tight_layout()
+plt.show()
+
+# %%
+df["energy_consumption"].describe()
+# %%
+# 1. Setup the figure and axis
+fig, ax = plt.subplots(figsize=(8, 4))
+
+# 2. Plot the histogram
+# We use density=True to prepare for a smooth curve if needed later
+ax.hist(df["energy_consumption"], bins=25, color="teal", edgecolor="black", alpha=0.7)
+
+# 3. Customize via Object-Oriented syntax
+ax.set_title(
+    "Sensor Profile: Bounded Energy Consumption Distribution", fontsize=14, pad=15
+)
+ax.set_xlabel("Energy Consumption (kWh or Standardized Units)", fontsize=11)
+ax.set_ylabel("Frequency Count", fontsize=11)
+
+# Add a grid along the y-axis for easier reading
+ax.grid(axis="y", linestyle="--", alpha=0.7)
+
+fig.tight_layout()
+plt.show()
+# %%
+df["pressure"].describe()
+# %%
+# 1. Setup the figure and axis
+fig, ax = plt.subplots(figsize=(8, 4))
+
+# 2. Plot the histogram
+# 20-25 bins will clearly show whether the top is flat or peaked
+ax.hist(df["pressure"], bins=20, color="indigo", edgecolor="black", alpha=0.7)
+
+# 3. Customize via Object-Oriented syntax
+ax.set_title("Sensor Profile: Symmetrical Pressure Distribution", fontsize=14, pad=15)
+ax.set_xlabel("Pressure (Bar / PSI / Standardized)", fontsize=11)
+ax.set_ylabel("Frequency Count", fontsize=11)
+
+# Set explicit X-ticks on the integer marks to match the quartiles
+ax.set_xticks([1.0, 2.0, 3.0, 4.0, 5.0])
+ax.grid(axis="y", linestyle="--", alpha=0.5)
+
+fig.tight_layout()
+plt.show()
+# %%
+df["humidity"].describe()
+# %%
+# 1. Create a figure with a 1-row, 3-column grid of axes
+fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(15, 4))
+
+# 2. Plot Energy Consumption on the first axis (axes[0])
+axes[0].hist(
+    df["energy_consumption"], bins=20, color="teal", edgecolor="black", alpha=0.7
+)
+axes[0].set_title("Energy Consumption")
+axes[0].set_xlabel("Units")
+axes[0].set_ylabel("Frequency")
+
+# 3. Plot Pressure on the second axis (axes[1])
+axes[1].hist(df["pressure"], bins=20, color="indigo", edgecolor="black", alpha=0.7)
+axes[1].set_title("System Pressure")
+axes[1].set_xlabel("Units")
+
+# 4. Plot Humidity on the third axis (axes[2])
+axes[2].hist(df["humidity"], bins=20, color="crimson", edgecolor="black", alpha=0.7)
+axes[2].set_title("Ambient Humidity")
+axes[2].set_xlabel("% Humidity")
+
+# 5. Global title and clean layout using OO syntax
+fig.suptitle(
+    "Comparative Analysis of Uniform Sensor Distributions",
+    fontsize=14,
+    weight="bold",
+    y=1.05,
+)
+fig.tight_layout()
+
+plt.show()
+
+# %%
+df["vibration"].describe()
+# %%
+# 1. Setup the figure and axis
+fig, ax = plt.subplots(figsize=(8, 4))
+
+# 2. Plot the histogram with a smooth distribution line
+sns.histplot(
+    df["vibration"], kde=True, color="darkorange", edgecolor="black", alpha=0.6, ax=ax
+)
+
+# 3. Customize via Object-Oriented syntax
+ax.set_title(
+    "Sensor Profile: Normally Distributed Vibration Oscillations", fontsize=14, pad=15
+)
+ax.set_xlabel("Vibration Level", fontsize=11)
+ax.set_ylabel("Count", fontsize=11)
+ax.grid(axis="y", linestyle="--", alpha=0.5)
+
+fig.tight_layout()
+plt.show()
+# %% temperature
+df["temperature"].describe()
+# %%
+
+# 1. Create a 2-row, 3-column grid of axes (the bottom-right spot will remain blank)
+fig, axes = plt.subplots(nrows=2, ncols=3, figsize=(15, 8))
+
+# --- Row 1: The Uniform Distributions ---
+# 1. Energy
+axes[0, 0].hist(
+    df["energy_consumption"], bins=20, color="teal", edgecolor="black", alpha=0.7
+)
+axes[0, 0].set_title("1. Energy Consumption (Uniform)")
+axes[0, 0].set_ylabel("Frequency")
+
+# 2. Pressure
+axes[0, 1].hist(df["pressure"], bins=20, color="indigo", edgecolor="black", alpha=0.7)
+axes[0, 1].set_title("2. System Pressure (Uniform)")
+
+# 3. Humidity
+axes[0, 2].hist(df["humidity"], bins=20, color="crimson", edgecolor="black", alpha=0.7)
+axes[0, 2].set_title("3. Ambient Humidity (Uniform)")
+
+# --- Row 2: The Normal Distributions ---
+# 4. Vibration
+axes[1, 0].hist(
+    df["vibration"], bins=20, color="darkorange", edgecolor="black", alpha=0.7
+)
+axes[1, 0].set_title("4. System Vibration (Normal)")
+axes[1, 0].set_ylabel("Frequency")
+
+# 5. Temperature
+axes[1, 1].hist(
+    df["temperature"], bins=20, color="darkred", edgecolor="black", alpha=0.7
+)
+axes[1, 1].set_title("5. Machine Temperature (Normal)")
+
+# 6. Hide the empty 6th subplot so the layout looks clean
+axes[1, 2].axis("off")
+
+# 4. Global styling using OO syntax
+fig.suptitle(
+    "Sensor Feature Profiles: Uniform vs. Normal Distributions",
+    fontsize=16,
+    weight="bold",
+    y=0.98,
+)
+fig.tight_layout()
+
+plt.show()
+
+# %%
+# Check how many unique machines are in the dataset
+print(f"Total Unique Machines: {df['machine_id'].nunique()}")
+
+# Check the exact timeframe of your study project
+# (Converting to datetime first ensures accurate min/max calculations)
+df["timestamp"] = pd.to_datetime(df["timestamp"])
+print(f"Data Starts: {df['timestamp'].min()}")
+print(f"Data Ends:   {df['timestamp'].max()}")
+
+# %%
+# 1. Sichere Kopie des Originalen DataFrames erstellen
+df_prep = df.copy()
+
+# 2. Zeitstempel explizit als Datetime formatieren (falls noch nicht geschehen)
+df_prep["timestamp"] = pd.to_datetime(df_prep["timestamp"])
+
+# 3. Features und Zielvariablen trennen
+# Wir definieren hier schon einmal die Liste der reinen Sensor-Features
+sensor_features = [
+    "energy_consumption",
+    "pressure",
+    "humidity",
+    "vibration",
+    "temperature",
+]
+
+# %%
+# 1. Schwellenwert definieren (3 Standardabweichungen)
+z_threshold = 3
+
+columns_to_check = ["vibration", "temperature"]
+
+print("--- Ausreißer-Analyse (3-Sigma-Regel) ---")
+for col in columns_to_check:
+    mean = df_prep[col].mean()
+    std = df_prep[col].std()
+
+    # Obere und untere Grenze berechnen
+    lower_bound = mean - (z_threshold * std)
+    upper_bound = mean + (z_threshold * std)
+
+    # Ausreißer zählen (Verwendung der lesbaren .query() Methode)
+    outliers = df_prep.query(f"{col} < {lower_bound} or {col} > {upper_bound}")
+    outlier_count = len(outliers)
+
+    print(
+        f"Spalte '{col}': {outlier_count} Zeilen liegen außerhalb von [{lower_bound:.2f}, {upper_bound:.2f}]"
+    )
+
+    # Best Practice: Werte an den Grenzen kappen (Winsorisierung)
+    # Statt Daten zu löschen, setzen wir extreme Ausreißer auf die Grenze fest.
+    df_prep[col] = df_prep[col].clip(lower=lower_bound, upper=upper_bound)
+
+print("\n-> Ausreißer wurden erfolgreich auf die 3-Sigma-Grenzen gekappt (Clipping).")
+# %%
+from sklearn.preprocessing import StandardScaler
+
+# 1. Liste aller 5 Sensor-Features definieren
+sensor_features = [
+    "energy_consumption",
+    "pressure",
+    "humidity",
+    "vibration",
+    "temperature",
+]
+
+# 2. Den StandardScaler initialisieren
+scaler = StandardScaler()
+
+# 3. Die Skalierung auf die gekappten Daten anwenden
+df_prep[sensor_features] = scaler.fit_transform(df_prep[sensor_features])
+
+# 4. Zur Überprüfung die neuen Min/Max-Werte anzeigen lassen
+print(df_prep[sensor_features].describe().loc[["mean", "std", "min", "max"]])
+# %%
+import matplotlib.pyplot as plt
+
+# 1. Erstelle ein 2x3 Grid für die 5 Sensor-Spalten
+fig, axes = plt.subplots(nrows=2, ncols=3, figsize=(15, 8))
+
+# Farbschema für die transformierten Daten definieren
+colors = ["#008080", "#4B0082", "#DC143C", "#FF8C00", "#8B0000"]
+
+# --- Reihe 1: Die gleichverteilten, skalierten Sensoren ---
+# 1. Energy Consumption
+axes[0, 0].hist(
+    df_prep["energy_consumption"],
+    bins=25,
+    color=colors[0],
+    edgecolor="black",
+    alpha=0.7,
+)
+axes[0, 0].set_title("1. Energy Consumption (Standardized)")
+axes[0, 0].set_ylabel("Anzahl Einträge")
+
+# 2. Pressure
+axes[0, 1].hist(
+    df_prep["pressure"], bins=25, color=colors[1], edgecolor="black", alpha=0.7
+)
+axes[0, 1].set_title("2. System Pressure (Standardized)")
+
+# 3. Humidity
+axes[0, 2].hist(
+    df_prep["humidity"], bins=25, color=colors[2], edgecolor="black", alpha=0.7
+)
+axes[0, 2].set_title("3. Ambient Humidity (Standardized)")
+
+# --- Reihe 2: Die normalverteilten, skalierten Sensoren ---
+# 4. Vibration
+axes[1, 0].hist(
+    df_prep["vibration"], bins=25, color=colors[3], edgecolor="black", alpha=0.7
+)
+axes[1, 0].set_title("4. System Vibration (Standardized)")
+axes[1, 0].set_ylabel("Anzahl Einträge")
+
+# 5. Temperature
+axes[1, 1].hist(
+    df_prep["temperature"], bins=25, color=colors[4], edgecolor="black", alpha=0.7
+)
+axes[1, 1].set_title("5. Machine Temperature (Standardized)")
+
+# 6. Den leeren 6. Plot unsichtbar machen
+axes[1, 2].axis("off")
+
+# --- Globale Anpassungen (Objektorientiert) ---
+fig.suptitle(
+    "Sensor-Features NACH der Standardisierung (Mittelwert = 0, Varianz = 1)",
+    fontsize=16,
+    weight="bold",
+    y=0.98,
+)
+
+# Einheitliche X-Achsen-Beschriftung, um die gleiche Skalierung zu betonen
+for row in axes:
+    for ax in row:
+        if ax != axes[1, 2]:  # Nicht für den versteckten Plot
+            ax.set_xlabel("Standardabweichungen (Z-Score)")
+            ax.grid(axis="y", linestyle="--", alpha=0.5)
+
+fig.tight_layout()
+plt.show()
+# %%
+from sklearn.preprocessing import LabelEncoder
+
+# --- 1. Variante A: Label Encoding für failure_type (Perfekt, falls es das Target wird) ---
+le = LabelEncoder()
+df_prep["failure_type_encoded"] = le.fit_transform(df_prep["failure_type"])
+
+# Zeigt dir das Mapping an (z.B. Normal -> 2, Overheating -> 3, etc.)
+mapping = dict(zip(le.classes_, le.transform(le.classes_)))
+print("--- Label Encoding Mapping für 'failure_type' ---")
+for key, val in mapping.items():
+    print(f"  {key} -> {val}")
+
+
+# --- 2. Variante B: One-Hot-Encoding (Perfekt, falls sie Features werden) ---
+# Wir erstellen Dummies für beide Spalten, behalten aber die Originalspalten im DF zur Übersicht
+df_prep = pd.get_dummies(
+    df_prep,
+    columns=["failure_type", "machine_status"],
+    prefix=["fail", "status"],
+    dtype=int,  # Erstellt direkt 0 und 1 statt True/False
+    drop_first=False,  # Wir behalten alle, um beim Daten-Ausschluss flexibel zu sein
+)
+
+print("\n--- Neue One-Hot-Encoded Spalten erfolgreich hinzugefügt ---")
+# Filtert und zeigt nur die neu generierten Dummy-Spaltennamen an
+dummy_cols = [col for col in df_prep.columns if col.startswith(("fail_", "status_"))]
+print(dummy_cols)
+# %%
+# Initialisiere den Scaler speziell für dieses Feature
+life_scaler = StandardScaler()
+
+# Skaliere die Spalte und überschreibe sie im vorbereiteten DataFrame
+df_prep["predicted_remaining_life"] = life_scaler.fit_transform(
+    df_prep[["predicted_remaining_life"]]
+)
+
+print("--- predicted_remaining_life nach der Skalierung ---")
+print(df_prep["predicted_remaining_life"].describe().loc[["mean", "std", "min", "max"]])
+# %%
+
+# 1. Setup: Ein Grid mit 1 Zeile und 2 Spalten
+fig, (ax1, ax2) = plt.subplots(nrows=1, ncols=2, figsize=(12, 4))
+
+# 2. Plot vor der Skalierung (aus dem originalen DataFrame df)
+ax1.boxplot(
+    df["predicted_remaining_life"],
+    vert=False,
+    patch_artist=True,
+    boxprops=dict(facecolor="lightgray", color="gray"),
+    medianprops=dict(color="black", linewidth=2),
+)
+ax1.set_title("Vorher: Originale Skala (1 bis 499)")
+ax1.set_xlabel("Tage / Zyklen")
+ax1.set_yticklabels([])
+
+# 3. Plot nach der Skalierung (aus dem vorbereiteten DataFrame df_prep)
+ax2.boxplot(
+    df_prep["predicted_remaining_life"],
+    vert=False,
+    patch_artist=True,
+    boxprops=dict(facecolor="lightblue", color="blue"),
+    medianprops=dict(color="red", linewidth=2),
+)
+ax2.set_title("Nachher: Standardisierte Skala (Z-Score)")
+ax2.set_xlabel("Standardabweichungen um den Mittelwert (0)")
+ax2.set_yticklabels([])
+
+# 4. Globale Titel und Layout
+fig.suptitle(
+    "Transformation der Restlebensdauer (Predicted Remaining Life)",
+    fontsize=14,
+    weight="bold",
+    y=1.05,
+)
+fig.tight_layout()
+
+plt.show()
+
+# %%
+
+# Erstelle die finale Zielvariable (y) basierend auf deiner gestrigen Analyse
+# Status 2 bedeutet "Alert/Failure", d.h. Wartung ist notwendig (1). Alles andere ist (0).
+df_prep["requires_maintenance"] = (df["machine_status"] == 2).astype(int)
+
+# Überprüfe die Verteilung deines neuen Targets
+print("--- Verteilung der Zielvariable 'requires_maintenance' ---")
+print(df_prep["requires_maintenance"].value_counts())
+# %%
+# 1. Feature-Vektor X definieren (Die 5 Sensoren + Restlebensdauer)
+features = [
+    "energy_consumption",
+    "pressure",
+    "humidity",
+    "vibration",
+    "temperature",
+    "predicted_remaining_life",
+]
+X = df_prep[features]
+
+# 2. Target-Vektor y definieren
+y = df_prep["requires_maintenance"]
+
+# 3. Train-Test-Split (80% Training, 20% Test)
+# random_state sorgt dafür, dass die Aufteilung bei jedem Lauf exakt gleich ist
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y
+)
+
+print(f"Trainingsdaten Form: {X_train.shape}")
+print(f"Testdaten Form:      {X_test.shape}")
+
+# 4. SVM Modell initialisieren
+# WICHTIG: probability=True erlaubt uns später die Priorisierung (Wahrscheinlichkeiten)
+# WICHTIG: class_weight='balanced' gleicht dein 80/20 Klassenungleichgewicht aus
+svm_model = SVC(
+    kernel="rbf",
+    class_weight="balanced",
+    probability=True,
+    cache_size=2000,
+    random_state=42,
+)
+
+print("\nStarte SVM-Training (Das kann bei 80.000 Zeilen im Zug 1-2 Minuten dauern)...")
+# svm_model.fit(X_train, y_train)
+print("Training abgeschlossen!")
+
+# 5. Vorhersagen auf den Testdaten generieren
+y_pred = svm_model.predict(X_test)
+
+# 6. Auswertung ausgeben
+print("\n--- Klassifikationsbericht ---")
+print(classification_report(y_test, y_pred))
+# %%
+# Wir wechseln den Kernel auf 'linear' und lassen probability=True für deine Priorisierung
+linear_svm_model = SVC(
+    kernel="linear",
+    class_weight="balanced",
+    cache_size=2000,
+    probability=True,
+    random_state=42,
+)
+
+# Training und Vorhersage wie gehabt
+# linear_svm_model.fit(X_train, y_train)
+linear_y_pred = linear_svm_model.predict(X_test)
+
+print("\n--- NEUER Klassifikationsbericht (Linearer Kernel) ---")
+print(classification_report(y_test, linear_y_pred))
+# %%
+# 1. Liste aller zu prüfenden Features erstellen (Alte + Neue)
+base_sensors = [
+    "energy_consumption",
+    "pressure",
+    "humidity",
+    "vibration",
+    "temperature",
+]
+roll_features = [col for col in df_prep.columns if "_roll_" in col]
+all_features_to_check = base_sensors + roll_features
+
+# 2. Korrelationen berechnen (nur die Zeile für unser Target extrahieren)
+correlations = df_prep[all_features_to_check].corrwith(df_prep["requires_maintenance"])
+
+# 3. Werte für eine saubere Darstellung sortieren
+correlations_sorted = correlations.abs().sort_values(ascending=False)
+print("--- Absolute Korrelation zum Wartungsbedarf (Top Features) ---")
+print(correlations)
+
+# 4. Objektorientiertes Diagramm erstellen (Vorher/Nachher-Vergleich)
+fig, ax = plt.subplots(figsize=(10, 6))
+
+# Balkendiagramm zeichnen (wir nutzen die echten Werte mit Vorzeichen, um Richtung zu sehen)
+correlations_ordered = correlations.loc[correlations_sorted.index]
+colors = [
+    "crimson" if "roll" in idx else "royalblue" for idx in correlations_ordered.index
+]
+
+ax.barh(
+    correlations_ordered.index,
+    correlations_ordered.values,
+    color=colors,
+    edgecolor="black",
+)
+
+# 5. OO-Styling
+ax.set_title(
+    "Welche Features liefern Signal? (Korrelation zu requires_maintenance)",
+    fontsize=14,
+    pad=15,
+)
+ax.set_xlabel("Pearson-Korrelationskoeffizient (r)", fontsize=11)
+ax.axvline(0, color="black", linewidth=1, linestyle="--")  # Nulllinie
+ax.invert_yaxis()  # Höchste Korrelation nach oben
+ax.grid(axis="x", linestyle="--", alpha=0.5)
+
+fig.tight_layout()
+plt.show()
+
+# %%
+# 1. Wir gehen zurück zu unserer unbeschädigten Originalkopie
+df_trends = df.copy()
+
+# 2. Chronologisch sortieren, damit die Zeitreihen für die 50 Maschinen stimmen
+df_trends = df_trends.sort_values(by=["machine_id", "timestamp"]).reset_index(drop=True)
+
+# 3. Das echte Target erstellen
+df_trends["requires_maintenance"] = (df_trends["machine_status"] == 2).astype(int)
+
+# 4. Rollierende Trends auf den echten, lückenlosen Zeitreihen berechnen (Fenstergröße 5)
+window_size = 5
+for col in ["temperature", "vibration", "pressure"]:
+    df_trends[f"{col}_roll_mean"] = df_trends.groupby("machine_id")[col].transform(
+        lambda x: x.rolling(window_size, min_periods=1).mean()
+    )
+    df_trends[f"{col}_roll_std"] = df_trends.groupby("machine_id")[col].transform(
+        lambda x: x.rolling(window_size, min_periods=1).std().fillna(0)
+    )
+
+# 5. Korrelationen neu berechnen
+new_features = [
+    "temperature_roll_mean",
+    "temperature_roll_std",
+    "vibration_roll_mean",
+    "vibration_roll_std",
+    "pressure_roll_mean",
+    "pressure_roll_std",
+]
+print("--- NEUE Korrelationen (mit echter Chronologie) ---")
+print(df_trends[new_features].corrwith(df_trends["requires_maintenance"]))
+# %%
+# Prüfe die Korrelation der verbleibenden Lebensdauer zum Wartungsbedarf
+life_corr = df_trends["predicted_remaining_life"].corr(
+    df_trends["requires_maintenance"]
+)
+print(f"Absolute Korrelation von predicted_remaining_life: {life_corr:.4f}")
+# %%
+# 1. Wir verkleinern wieder auf 20k Zeilen für maximale Geschwindigkeit
+df_final = df_prep.sample(n=20000, random_state=42)
+
+# 2. X definieren: Wir fügen das entscheidende ANOMALY_FLAG hinzu!
+# Wir nutzen die One-Hot-Spalten oder das Original-Flag
+features = [
+    "energy_consumption",
+    "pressure",
+    "humidity",
+    "vibration",
+    "temperature",
+    "anomaly_flag",
+]
+X = df_final[features]
+
+# 3. Target definieren (wie besprochen)
+y = df_final["requires_maintenance"]
+
+# 4. Split
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y
+)
+
+# 5. Schnelle lineare SVM initialisieren
+svm_model = SVC(
+    kernel="linear",
+    class_weight="balanced",
+    cache_size=2000,
+    probability=True,
+    random_state=42,
+)
+
+print("Trainiere finale SVM mit integriertem Anomaly-Signal...")
+# svm_model.fit(X_train, y_train)
+
+# 6. Auswertung
+y_pred = svm_model.predict(X_test)
+print("\n--- FINALE KLASSIFIKATIONSERGEBNISSE ---")
+print(classification_report(y_test, y_pred))
+# %%
+
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import classification_report
+
+# 1. Wir nutzen exakt dieselben X_train und X_test Daten wie eben für die SVM!
+# 2. Random Forest initialisieren (nutzt dank n_jobs=-1 übrigens ALLE deine CPU-Kerne parallel!)
+rf_model = RandomForestClassifier(class_weight="balanced", n_jobs=-1, random_state=42)
+
+print("Trainiere parallelen Random Forest Classifier...")
+rf_model.fit(X_train, y_train)
+
+# 3. Auswertung
+y_pred_rf = rf_model.predict(X_test)
+print("\n--- ERGEBNISSE: RANDOM FOREST ---")
+print(classification_report(y_test, y_pred_rf))
+# %%
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import classification_report
+from sklearn.model_selection import train_test_split
+
+# 1. Wir nehmen das sauber encodierte failure_type Feature hinzu!
+# Das liefert dem Baum die Information, ob und welcher Fehler vorliegt
+features = [
+    "energy_consumption",
+    "pressure",
+    "humidity",
+    "vibration",
+    "temperature",
+    "failure_type_encoded",
+]
+X = df_prep[
+    features
+]  # Wir nehmen den ganzen Datensatz, der Wald packt das parallel in Sekunden!
+
+y = df_prep["requires_maintenance"]
+
+# 2. Split (Stratify sorgt dafür, dass die Verteilung in Train und Test identisch ist)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y
+)
+
+# 3. Random Forest mit allen Kernen trainieren
+rf_model = RandomForestClassifier(class_weight="balanced", n_jobs=-1, random_state=42)
+print("Trainiere finalen Random Forest mit Fehler-Informationen...")
+rf_model.fit(X_train, y_train)
+
+# 4. Auswertung
+y_pred_rf = rf_model.predict(X_test)
+print("\n--- ERGEBNISSE: RANDOM FOREST (MIT FAILURE ENCODING) ---")
+print(classification_report(y_test, y_pred_rf))
+# %%
+import pandas as pd
+from sklearn.ensemble import RandomForestClassifier
+
+# 1. Features (X) und Target (y) definieren - die reinen Sensoren reichen dem Baum!
+features = [
+    "energy_consumption",
+    "pressure",
+    "humidity",
+    "vibration",
+    "temperature",
+    "predicted_remaining_life",
+]
+X = df_prep[features]
+y = df_prep["requires_maintenance"]
+
+# 2. Modell trainieren (nutzt alle CPU-Kerne deines Ryzen 7, dauert ca. 2 Sekunden)
+rf_final = RandomForestClassifier(class_weight="balanced", n_jobs=-1, random_state=42)
+rf_final.fit(X, y)
+
+# 3. Wahrscheinlichkeiten für den Wartungsbedarf (Klasse 1) für den gesamten Datensatz berechnen
+# [:, 1] extrahiert die Wahrscheinlichkeit für "Wartung erforderlich"
+df_prep["maintenance_probability"] = rf_final.predict_proba(X)[:, 1]
+
+# 4. Die aktuellsten Daten pro Maschine aggregieren, um den Ist-Zustand zu bewerten
+# Wir gruppieren nach machine_id und nehmen den jeweils letzten bekannten Log-Eintrag
+latest_machine_states = (
+    df_prep.sort_values("timestamp").groupby("machine_id").last().reset_index()
+)
+
+# 5. Die Top 10 Maschinen mit dem höchsten Wartungsrisiko sortieren
+prioritization_list = latest_machine_states[
+    ["machine_id", "maintenance_probability", "temperature", "vibration"]
+]
+prioritization_list = prioritization_list.sort_values(
+    by="maintenance_probability", ascending=False
+).head(10)
+
+print("=== 📋 BETRIEBLICHE PRIORISIERUNGSLISTE FÜR DEN WARTUNGSTECHNIKER ===")
+for idx, row in prioritization_list.iterrows():
+    print(
+        f"Platz {idx + 1}: Maschine ID {int(row['machine_id']):02d} | "
+        f"Wartungs-Risiko: {row['maintenance_probability'] * 100:.1f}% | "
+        f"Temperatur (skaliert): {row['temperature']:.2f}"
+    )
+
+# %%
+
+df_prep.head()
+# %%
+# 1. Streng limitierter Feature-Vektor X (NUR die 5 physikalischen Sensoren)
+pure_sensors = [
+    "energy_consumption",
+    "pressure",
+    "humidity",
+    "vibration",
+    "temperature",
+]
+X_pure = df_prep[pure_sensors]
+
+# 2. Das bekannte Target (y)
+y = df_prep["requires_maintenance"]
+
+# 3. Train-Test-Split (80% / 20%) mit Stratify zur Beibehaltung der Klassenverteilung
+X_train_p, X_test_p, y_train_p, y_test_p = train_test_split(
+    X_pure, y, test_size=0.2, random_state=42, stratify=y
+)
+
+# 4. Random Forest initialisieren und auf ALLEN CPU-Kernen trainieren
+rf_pure = RandomForestClassifier(class_weight="balanced", n_jobs=-1, random_state=42)
+
+print("Trainiere Random Forest AUSSCHLIESSLICH auf den 5 Sensordaten...")
+rf_pure.fit(X_train_p, y_train_p)
+print("Training abgeschlossen!")
+
+# 5. Vorhersage und Auswertung
+y_pred_p = rf_pure.predict(X_test_p)
+
+print("\n--- EXPERIMENT-ERGEBNIS: RANDOM FOREST (NUR SENSOREN) ---")
+print(classification_report(y_test_p, y_pred_p))
+
+print("\n--- ZUGEHÖRIGE CONFUSION MATRIX ---")
+print(confusion_matrix(y_test_p, y_pred_p))
+
+# %% global correlation map
+
+# 1. Relevante Spalten für die Gesamtmatrix auswählen
+# Wir nehmen die Sensoren, die Metadaten, die Flags und unser Target auf
+correlation_cols = [
+    "energy_consumption",
+    "pressure",
+    "humidity",
+    "vibration",
+    "temperature",
+    "predicted_remaining_life",
+    "anomaly_flag",
+    "requires_maintenance",
+]
+
+# 2. Die Korrelationsmatrix berechnen
+df_prep["requires_maintenance"] = (df["machine_status"] == 2).astype(int)
+corr_matrix = df_prep[correlation_cols].corr()
+
+# 3. Plot-Objekte im OO-Stil erstellen
+fig, ax = plt.subplots(figsize=(10, 8))
+
+# 4. Heatmap zeichnen
+sns.heatmap(
+    corr_matrix,
+    annot=True,  # Zahlenwerte in die Boxen schreiben
+    fmt=".3f",  # 3 Nachkommastellen für die winzigen Werte
+    cmap="coolwarm",  # Blau (negativ), Weiß (null), Rot (positiv)
+    vmin=-1,
+    vmax=1,  # Skala von -1 bis +1 festlegen
+    square=True,  # Quadratische Boxen
+    linewidths=0.5,  # Dünne Trennlinien
+    linecolor="lightgray",
+    ax=ax,
+)
+
+# 5. OO-Layout anpassen
+ax.set_title(
+    "Globale Korrelationsmap: Der Beweis des Zufallsrauschens", fontsize=14, pad=20
+)
+plt.xticks(rotation=45, ha="right")
+plt.yticks(rotation=0)
+
+fig.tight_layout()
+plt.show()
+# %%
+# Zeigt die exakten Korrelationswerte zu y im Terminal an
+corr_matrix = df_prep[correlation_cols].corr()
+corr_matrix
+
+# %%
+from sklearn.metrics import classification_report, mean_absolute_error, r2_score
+from sklearn.model_selection import train_test_split
+from sklearn.svm import SVC, SVR
+
+# 1. Gemeinsame Eingangsfeatures (NUR die 5 reinen physikalischen Sensoren)
+pure_sensors = [
+    "energy_consumption",
+    "pressure",
+    "humidity",
+    "vibration",
+    "temperature",
+]
+X = df_prep[pure_sensors]
+
+# 2. Die beiden getrennten Zielvariablen definieren
+y_clf = df_prep["anomaly_flag"]
+y_reg = df_prep["predicted_remaining_life"]
+
+# Wir nutzen ein schnelles 20k Sample für das Training im Jupyter Notebook
+X_sample = X.sample(n=40000, random_state=42)
+y_clf_sample = y_clf.loc[X_sample.index]
+y_reg_sample = y_reg.loc[X_sample.index]
+
+# -------------------------------------------------------------------------
+# MODELL 1: KLASSIFIKATION (Anomaly Flag)
+# -------------------------------------------------------------------------
+X_train_c, X_test_c, y_train_c, y_test_c = train_test_split(
+    X_sample, y_clf_sample, test_size=0.2, random_state=42, stratify=y_clf_sample
+)
+
+svm_clf = SVC(
+    kernel="rbf",
+    class_weight="balanced",
+    probability=True,
+    cache_size=2000,
+    random_state=42,
+)
+print("1. Trainiere RBF-SVC für Anomalie-Erkennung...")
+svm_clf.fit(X_train_c, y_train_c)
+y_pred_c = svm_clf.predict(X_test_c)
+
+# -------------------------------------------------------------------------
+# MODELL 2: REGRESSION (Predicted Remaining Life)
+# -------------------------------------------------------------------------
+# Hinweis: Bei Regression kein 'stratify', da es sich um kontinuierliche Werte handelt
+X_train_r, X_test_r, y_train_r, y_test_r = train_test_split(
+    X_sample, y_reg_sample, test_size=0.2, random_state=42
+)
+
+# SVR benötigt kein class_weight, da es keine Klassen gibt
+svm_reg = SVR(kernel="rbf", cache_size=2000)
+print("2. Trainiere RBF-SVR für Lebensdauer-Regression...")
+svm_reg.fit(X_train_r, y_train_r)
+y_pred_r = svm_reg.predict(X_test_r)
+
+# -------------------------------------------------------------------------
+# AUSWERTUNG BEIDER MODELLE
+# -------------------------------------------------------------------------
+print("\n=========================================================")
+print("🚀 ERGEBNISSE MODELL 1: ANOMALIE-KLASSIFIKATION (SVC)")
+print("=========================================================")
+print(classification_report(y_test_c, y_pred_c))
+
+print("\n=========================================================")
+print("📈 ERGEBNISSE MODELL 2: LEBENSDAUER-REGRESSION (SVR)")
+print("=========================================================")
+# Da wir y vorhin skaliert haben, spuckt der MAE den Fehler in Standardabweichungen aus
+mae = mean_absolute_error(y_test_r, y_pred_r)
+r2 = r2_score(y_test_r, y_pred_r)
+print(f"Mean Absolute Error (MAE): {mae:.4f} (Standardabweichungen)")
+print(f"Bestimmtheitsmaß (R²-Score): {r2:.4f}")
+# %%
+
+# 1. Erweitere die Features für die Regression um die Zeittrends
+regression_features = [
+    "energy_consumption",
+    "pressure",
+    "humidity",
+    "vibration",
+    "temperature",
+    "temperature_roll_mean",
+    "temperature_roll_std",
+    "vibration_roll_mean",
+    "vibration_roll_std",
+    "pressure_roll_mean",
+    "pressure_roll_std",
+]
+
+# Hinweis: Stelle sicher, dass diese _roll_ Spalten im df_prep existieren
+# und durch den StandardScaler gelaufen sind!
+X_reg_extended = df_prep[regression_features].sample(n=40000, random_state=42)
+y_reg_extended = df_prep["predicted_remaining_life"].loc[X_reg_extended.index]
+
+# 2. Neuer Split für die Regression
+X_train_re, X_test_re, y_train_re, y_test_re = train_test_split(
+    X_reg_extended, y_reg_extended, test_size=0.2, random_state=42
+)
+
+# 3. Trainiere die SVR neu (mit etwas mehr RAM-Cache für die 11 Features)
+svm_reg_extended = SVR(kernel="rbf", cache_size=2000)
+print("Trainiere optimierte RBF-SVR mit historischen Zeittrends...")
+svm_reg_extended.fit(X_train_re, y_train_re)
+
+# 4. Auswertung
+y_pred_re = svm_reg_extended.predict(X_test_re)
+print("\n--- 📈 NEUE ERGEBNISSE: OPTIMIERTE LEBENSDAUER-REGRESSION (SVR) ---")
+print(f"Mean Absolute Error (MAE): {mean_absolute_error(y_test_re, y_pred_re):.4f}")
+print(f"Bestimmtheitsmaß (R²-Score): {r2_score(y_test_re, y_pred_re):.4f}")
+
+# %%
+
+import numpy as np
+from sklearn.metrics import mean_absolute_error, r2_score
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.svm import SVR
+
+# 1. Frische Kopie für das Regressions-Experiment erstellen
+df_reg_experiment = df_trends.copy()
+
+# 2. Alle Features definieren, die wir nutzen wollen (Basis + Trends)
+regression_features = [
+    "energy_consumption",
+    "pressure",
+    "humidity",
+    "vibration",
+    "temperature",
+    "temperature_roll_mean",
+    "temperature_roll_std",
+    "vibration_roll_mean",
+    "vibration_roll_std",
+    "pressure_roll_mean",
+    "pressure_roll_std",
+]
+
+# 3. WICHTIG: Die rollierenden Features müssen VOR dem Training standardisiert werden
+scaler_reg = StandardScaler()
+df_reg_experiment[regression_features] = scaler_reg.fit_transform(
+    df_reg_experiment[regression_features]
+)
+
+# 4. Ziehe das identische 20k Sample (wichtig für den Vergleich zum ersten Versuch)
+X_reg_extended = df_reg_experiment[regression_features].sample(n=20000, random_state=42)
+y_reg_extended = df_reg_experiment["predicted_remaining_life"].loc[X_reg_extended.index]
+
+# 5. Train-Test-Split (80% / 20%)
+X_train_re, X_test_re, y_train_re, y_test_re = train_test_split(
+    X_reg_extended, y_reg_extended, test_size=0.2, random_state=42
+)
+
+# 6. SVR trainieren (RBF-Kernel mit erhöhtem Cache)
+svm_reg_extended = SVR(kernel="rbf", cache_size=2000)
+print("Trainiere optimierte RBF-SVR mit skalierten Zeittrends aus df_trends...")
+svm_reg_extended.fit(X_train_re, y_train_re)
+
+# 7. Auswertung
+y_pred_re = svm_reg_extended.predict(X_test_re)
+print("\n--- 📈 NEUE ERGEBNISSE: TIMETREND-REGRESSION (SVR) ---")
+print(
+    f"Mean Absolute Error (MAE): {mean_absolute_error(y_test_re, y_pred_re):.4f} (Tage/Zyklen)"
+)
+print(f"Bestimmtheitsmaß (R²-Score): {r2_score(y_test_re, y_pred_re):.4f}")
+
+
+# %%
+True
+
+# # %% 6 anzahl eindeutiger werte pro spalte
+# df.nunique()
+# # %% 7 dataframe nach Spalte "Alter" sortieren
+# df.sort_values(by="Alter", ascending=True)
+
+# # %% 8 Deskriptivstatistik (Mittelwert, Median, Standardabweichung)
+# # stats = pd.DataFrame(
+# #     {
+# #         "Mittelwert": df.mean(numeric_only=True),
+# #         "Zentralwert": df.median(numeric_only=True),
+# #         "Standardabweichung": df.std(numeric_only=True),
+# #     }
+# # )
+# # stats
+
+# stats = df.describe()
+# stats
+
+# # %% 9 Histogramm des Gehalts
+# mean_gehalt = stats.loc["mean", "Gehalt"]
+# assert isinstance(mean_gehalt, float)
+# median_gehalt = stats.loc["50%", "Gehalt"]
+# assert isinstance(median_gehalt, float)
+# count_gehalt = stats.loc["count", "Gehalt"]
+# assert isinstance(count_gehalt, float)
+
+
+# bin_size = int(np.ceil(np.sqrt(count_gehalt)))
+
+# fig, ax = plt.subplots()
+# ax.hist(df["Gehalt"], bins=bin_size, color="green", edgecolor="lime", alpha=0.7)
+
+# ax.axvline(
+#     mean_gehalt,
+#     color="blue",
+#     linestyle="--",
+#     label=f"Mittelwert: {mean_gehalt:,.0f}€",
+# )
+# ax.axvline(
+#     median_gehalt,
+#     color="red",
+#     linestyle="--",
+#     label=f"Zentralwert: {median_gehalt:,.0f}€",
+# )
+# ax.set(
+#     title="Verteilung der Gehälter", xlabel="Gehalt in €", ylabel="Anzahl Mitarbeiter"
+# )
+# ax.legend()
+# # %% 10 Boxplot des Alters, visualisiert ausreiser
+
+# fig, ax = plt.subplots()
+# bp = ax.boxplot(
+#     df["Alter"],
+#     patch_artist=True,
+#     boxprops=dict(facecolor="white", color="green"),  # "boxes"
+#     whiskerprops=dict(color="lime"),  # "whiskers"
+#     capprops=dict(color="lime"),  # Kappen (Enden)
+#     medianprops=dict(color="red"),
+# )
+# ax.set(title="Boxplot der Altersverteilung", ylabel="Alter in Jahren", xticks=[])
+# # %% 11 Fehlende Alter mit Mittelwert ersetzten
+# df.fillna({"Alter": stats.loc["mean", "Alter"]})
+# # %% 12 Fehlende Werte des Gehalts mit Median ersetzten
+# df.fillna({"Gehalt": stats.loc["50%"]["Gehalt"]})
+# # %% 13 Normalisieren mit [min, max] -> [0,1]
+# min_g = stats.loc["min", "Gehalt"]
+# assert isinstance(min_g, float)
+# max_g = stats.loc["max", "Gehalt"]
+# assert isinstance(max_g, float)
+# df_normalized = df.copy()
+# df_normalized["Gehalt"] = (df_normalized["Gehalt"] - min_g) / (max_g - min_g)
+# df_normalized
+
+
+# # %% 14 Normalisieren mit Z-score
+
+# df_z = df.copy()
+# mu = stats.loc["mean", "Gehalt"]
+# assert isinstance(mu, float)
+# mu = float(mu)
+# sigma = stats.loc["std", "Gehalt"]
+# assert isinstance(sigma, float)
+# sigma = float(sigma)
+
+# df_z["Gehalt"] = (df_z["Gehalt"] - mu) / sigma
+
+# df_z
+# # %% 14.1 - Einschub
+# # Scatter-Plot: Alter vs. normalisiertes Gehalt
+# fix, ax = plt.subplots()
+# ax.scatter(x=df_z["Alter"], y=df_z["Gehalt"], color="green", s=50)
+
+# # Eine Nulllinie für den Mittelwert einfügen (da Z-Score!)
+# ax.axhline(0, color="red", linestyle="--", alpha=0.5, label="Durchschnitt")
+
+# # Polynum ersten grades auf die Daten fitten
+# m, b = np.polyfit(df_z["Alter"], df_z["Gehalt"], 1)
+
+
+# def predict_gehalt_z(alter):
+#     """Berechnet das erwartete Z-Gehalt basierend auf dem Alter."""
+#     return m * alter + b
+
+
+# # Die Regressionsgerade einzeichnen
+# x_range = np.linspace(df_z["Alter"].min(), df_z["Alter"].max(), 100)
+# ax.plot(
+#     x_range,
+#     m * x_range + b,
+#     color="orange",
+#     linewidth=2,
+#     label="Regressionsgerade",
+# )
+
+# ax.set(
+#     title="Zusammenhang: Alter vs. Gehalt (Z-Score)",
+#     xlabel="Alter (Jahre)",
+#     ylabel="Gehalt (Standardabweichungen vom Mittelwert)",
+# )
+# ax.legend()
+
+# # %%
+# # 1. Vorhersage für alle existierenden Alterswerte berechnen
+# # p_funktion ist unser np.poly1d([m, b]) von vorhin
+# df_z["Vorhersage"] = predict_gehalt_z(df_z["Alter"])
+
+# # 2. Residuen berechnen (Abweichung vom echten Gehalt)
+# df_z["Residuen"] = df_z["Gehalt"] - df_z["Vorhersage"]
+
+# # 3. Residuen-Plot erstellen
+# ax = df_z.plot.scatter(x="Alter", y="Residuen", color="red", s=50)
+# ax.axhline(0, color="black", linestyle="--")  # Die "Perfekt"-Linie
+
+# ax.set(
+#     title="Residuen-Analyse (Fehler-Check)", xlabel="Alter", ylabel="Abweichung (Error)"
+# )
+
+# # %% 15 Manual Bin ranges from
+# bins = [20, 30, 40, 50]
+# labels = ["20-30", "30-40", "40-50"]
+# bin_series = pd.cut(df["Alter"], bins=bins, labels=labels, include_lowest=True)
+# bin_series
+
+# # %% 16 Wähle 50% des Datensatzes zufällig aus
+# df.sample(frac=0.5)
+# # %% 17
+# train = df.sample(frac=0.8)
+# print(train)
+# test = df.drop(train.index)
+# test
+# # %% 18
+# df_discret: pd.DataFrame = df.copy()
+# pos = df_discret.columns.get_loc("Alter")
+# assert isinstance(pos, int)
+# pos += 1
+# werte = pd.qcut(df["Alter"], q=3, labels=["Low", "Medium", "High"])
+# df_discret.insert(pos, "Stuff", werte)
+# df_discret
+# # %% 19
