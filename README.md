@@ -16,8 +16,8 @@ Folge diesen Schritten, um das Projekt lokal aufzusetzen:
 
 ### 1. Repository klonen
 ```bash
-git clone https://github.com
-cd REPOSITORNAME
+git clone https://github.com/bluefire-fx/project_smart_manufacturing
+cd project_smart_manufacturing
 ```
 
 ### 2. Virtuelle Umgebung erstellen und Abhängigkeiten installieren
