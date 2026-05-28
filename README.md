@@ -43,15 +43,14 @@ uv run python ./data/download.py
 
 ---
 
-## 💻 Notebook philosophie
+## 💻 Notebook Philosophie
 
-Im git repo werden keine ipynb dateien verwaltet. Als alternative dienen Notebooks im Helium stil. Zwischen den beiden Stilen kann aber problemlos konvertiert werden:
+Im git repo werden keine ipynb dateien verwaltet. Als alternative dienen Notebooks im Helium stil. Zwischen den beiden Stilen kann aber problemlos konvertiert werden und für VSCode gibt es die ***jupytext-sync*** extension. Das funktioniert ganz automatisch!
 
-Helium => Jupyter Notebook
 ```bash
-uv run ipynb-py-convert 00_converter_example.py 00_converter_example.ipynb
+uv run jupytext --sync 00_converter_example.py
 ```
-Jupyter Notebook => Helium
+*or*
 ```bash
-uv run ipynb-py-convert 00_converter_example.ipynb 00_converter_example.py
+uv run jupytext --sync 00_converter_example.ipynb
 ```

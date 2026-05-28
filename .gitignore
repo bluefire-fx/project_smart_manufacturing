@@ -19,3 +19,6 @@ images/
 
 # Jupyter Notebook Checkpoints
 .ipynb_checkpoints/
+
+# Just sync them, don't save in git
+*.ipynb

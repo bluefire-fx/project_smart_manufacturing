@@ -5,9 +5,9 @@ description = "HS Aalen Predictive Analytics Project"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
-    "ipynb-py-convert>=0.4.6",
     "joblib>=1.5.3",
     "jupyter>=1.1.1",
+    "jupytext>=1.19.3",
     "matplotlib>=3.10.9",
     "numpy>=2.4.5",
     "pandas>=3.0.3",
@@ -17,3 +17,7 @@ dependencies = [
     "seaborn>=0.13.2",
     "streamlit>=1.57.0",
 ]
+
+[tool.jupytext]
+formats = "ipynb,py:percent"
+notebook_metadata_filter = "-all"
