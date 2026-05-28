@@ -1,0 +1,8 @@
+{
+    "recommendations": [
+        "ms-toolsai.jupyter",
+        "ms-python.python",
+        "caenrigen.jupytext-sync",
+        "vscode-icons-team.vscode-icons"
+    ]
+}
