@@ -1,3 +1,5 @@
+import os
+
 import joblib
 import matplotlib.pylab as plt
 import numpy as np
@@ -6,6 +8,15 @@ from sklearn.metrics import auc, roc_curve
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
+
+# -1. Create folders, if not exist
+IMAGE_FOLDER = "images"
+if not os.path.exists(IMAGE_FOLDER):
+    os.makedirs(IMAGE_FOLDER)
+
+MODEL_FOLDER = "models"
+if not os.path.exists(MODEL_FOLDER):
+    os.makedirs(MODEL_FOLDER)
 
 # 0. Finale Hyperparameter für die SVM Klassifizierung
 PARAMETER_C = 1000
@@ -86,7 +97,7 @@ production_artifacts = {
 }
 
 # 9. Auf die Festplatte schreiben
-output_path = "models/svm_anomaly_detector.joblib"
+output_path = f"{MODEL_FOLDER}/svm_anomaly_detector.joblib"
 joblib.dump(production_artifacts, output_path)
 print(f"✓ Artefakte erfolgreich in '{output_path}' gespeichert!")
 
@@ -150,7 +161,7 @@ ax.legend(
 )
 
 # 7. Grafiken hochauflösend im passenden Projektordner speichern
-target_folder = "images"
+target_folder = IMAGE_FOLDER
 filename_base = f"{target_folder}/svm_roc_curve"
 
 fig.savefig(f"{filename_base}.png", dpi=300, bbox_inches="tight", facecolor="white")
@@ -162,22 +173,26 @@ print(f"✓ ROC-Kurve erfolgreich gespeichert unter: {filename_base}.png/.pdf")
 # plt.show()
 
 # Beispiel Anwendung
-# 1. Wahrscheinlichkeiten mit den skalierten Daten berechnen
-df["anomaly_probability"] = final_model.predict_proba(x_test_scaled)[:, 1]
+# 1. Wir bauen ein dediziertes Test-DataFrame auf, um die Zuordnung der IDs zu behalten
+# Dazu greifen wir uns die exakten Zeilen-Indizes des Test-Splits aus dem Original-DF heraus
+df_app = df.loc[x_test.index].copy()
 
-# 2. Den jeweils allerletzten Log-Eintrag pro Maschine isolieren (Dein Code ab hier ist top!)
+# 2. Jetzt berechnen wir die Wahrscheinlichkeiten für die Test-Zeilen
+df_app["anomaly_probability"] = final_model.predict_proba(x_test_scaled)[:, 1]
+
+# 3. Den jeweils allerletzten Log-Eintrag pro Maschine isolieren
 latest_factory_state = (
-    df.sort_values("timestamp").groupby("machine_id").last().reset_index()
+    df_app.sort_values("timestamp").groupby("machine_id").last().reset_index()
 )
 
-# Top 10 Risiko-Maschinen filtern
+# Top 12 Risiko-Maschinen filtern
 prioritization_table = latest_factory_state[
     ["machine_id", "anomaly_probability", "temperature", "vibration"]
 ]
 
 prioritization_table = prioritization_table.sort_values(
     by="anomaly_probability", ascending=False
-).head(10)  # Zeigt die Top 10
+).head(12)  # Zeigt die Top 12
 
 # 3. Maschinen nach dringlichkeit auflisten
 print("=== 📋 REPRODUZIERBARE PRIORISIERUNGSLISTE FÜR DIE INSTANDHALTUNG ===")
