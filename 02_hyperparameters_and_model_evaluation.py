@@ -100,7 +100,7 @@ param_grid = [
         "kernel": ["poly"],
         "C": [0.001, 0.01, 0.1, 1],
         "degree": [3],
-        "gamma": ["scale"],
+        "gamma": ["scale", "auto"],
     },
 ]
 
