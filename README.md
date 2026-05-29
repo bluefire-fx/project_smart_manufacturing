@@ -54,3 +54,15 @@ uv run jupytext --sync 00_converter_example.py
 ```bash
 uv run jupytext --sync 00_converter_example.ipynb
 ```
+
+## 🐍 Python Dateien direkt (Nicht als Notebook) ausführen
+
+```bash
+uv run 00_converter_example.py
+```
+
+## 🔥 Streamlit lokal auf deinem Rechner ausführen
+
+```bash
+uv run streamlit run 04_streamlit_demo.py
+```
