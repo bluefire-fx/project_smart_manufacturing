@@ -99,7 +99,24 @@ production_artifacts = {
 # 9. Auf die Festplatte schreiben
 output_path = f"{MODEL_FOLDER}/svm_anomaly_detector.joblib"
 joblib.dump(production_artifacts, output_path)
-print(f"✓ Artefakte erfolgreich in '{output_path}' gespeichert!")
+print(f"✓ Artefakte erfolgreich in '{output_path}' gespeichert!\n")
+
+# Precicion, Accuracy, Recall
+from sklearn.metrics import accuracy_score, precision_score, recall_score
+
+y_pred_for_analysis = final_model.predict(x_test_scaled)
+
+
+# 6. Metriken explizit berechnen
+accuracy = accuracy_score(y_test, y_pred_for_analysis)
+precision = precision_score(y_test, y_pred_for_analysis)
+recall = recall_score(y_test, y_pred_for_analysis)
+
+print("✓ Metriken des finalen SVM Modells:")
+print(f"Accuracy:  {accuracy:.4f}")
+print(f"Precision: {precision:.4f}")
+print(f"Recall:    {recall:.4f}\n")
+
 
 # ROC Plot vom final_model
 # 1. Wahrscheinlichkeiten für die Anomalie-Klasse (Index 1) auf dem Test-Set vorhersagen
