@@ -8,7 +8,7 @@ import seaborn as sns
 
 # -1. Stichproben, oder eben nicht
 DOWNSAMPLE_SVM = None  # Voller Datensatz -> Bilder landen direkt im Bilder Ordner
-# DOWNSAMPLE_SVM = 0.1  # 10 % Der sample verwenden, schneller zum testen und entwickeln -> Unterordner samples
+# DOWNSAMPLE_SVM = 0.2  # 20 % Der sample verwenden, schneller zum testen und entwickeln -> Unterordner samples
 
 # 0. Ordner erstellen
 IMAGE_FOLDER = "images"
